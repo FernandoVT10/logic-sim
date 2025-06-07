@@ -55,6 +55,10 @@ void wiring_end(Pin *pin) {
     // little hack to draw the wire behind all components :)
     add_component_at_start(COMP_WIRE, wire);
 
+    // adding references to the pins
+    wire->input->wire = wire;
+    wire->out->wire = wire;
+
     state.cur_wire = NULL;
     state.wiring = false;
 }

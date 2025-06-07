@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <assert.h>
+#include <stdio.h>
 
 #include "raylib.h"
 #include "components.h"
@@ -82,9 +83,14 @@ void delete_component(size_t id) {
                 state.components.head = comp->next;
             }
 
-            if(pos == state.components.count - 1) {
+            if(state.components.count > 0 && pos == state.components.count - 1) {
                 state.components.tail = prev_comp;
             }
+
+            if(prev_comp != NULL) {
+                prev_comp->next = comp->next;
+            }
+
             free(comp);
             state.components.count--;
             break;
@@ -113,6 +119,12 @@ static void pin_update(Pin *pin) {
 
 static void pin_draw(Pin pin) {
     DrawCircleV(pin_get_pos(pin), PIN_RADIUS, COMP_COLOR);
+}
+
+static void pin_before_delete(Pin *pin) {
+    if(pin.wire == NULL) return;
+
+    wire_delete(pin.wire);
 }
 
 Switch *switch_new(Vector2 initial_pos) {
@@ -226,7 +238,7 @@ Nand *nand_new(Vector2 initial_pos) {
     return nand;
 }
 
-void nand_update(Nand *nand) {
+void nand_update(Nand *nand, size_t comp_id) {
     pin_update(&nand->out);
     pin_update(&nand->in[0]);
     pin_update(&nand->in[1]);
@@ -239,10 +251,16 @@ void nand_update(Nand *nand) {
         .height = NAND_HEIGHT,
     };
 
-    if(CheckCollisionPointRec(GetMousePosition(), collider)
-        && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)
-    ) {
-        drag_start(&nand->pos);
+    if(CheckCollisionPointRec(GetMousePosition(), collider)) {
+        if(IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+            drag_start(&nand->pos);
+        } else if(IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)) {
+            delete_component(comp_id);
+            pin_before_delete(&nand->out);
+            pin_before_delete(&nand->in[0]);
+            pin_before_delete(&nand->in[1]);
+            free(nand);
+        }
     }
 }
 
@@ -313,13 +331,34 @@ void led_draw(Led *led) {
 Wire *wire_new() {
     return alloc(sizeof(Wire));
 }
-void wire_update(Wire *wire) {
+
+void wire_delete(Wire *wire, size_t wire_id) {
+    wire->out->on = false;
+    wire->input->wire = NULL;
+    wire->out->wire = NULL;
+    delete_component(wire_id);
+    free(wire);
+}
+
+void wire_update(Wire *wire, size_t wire_id) {
     if(wire->input != NULL) {
         wire->on = wire->input->on;
     }
 
     if(wire->out != NULL) {
         wire->out->on = wire->on;
+    }
+
+    if(wire->input != NULL && wire->out != NULL) {
+        Vector2 mouse_pos = GetMousePosition();
+        Vector2 input_pos = pin_get_pos(*wire->input);
+        Vector2 output_pos = pin_get_pos(*wire->out);
+
+        if(CheckCollisionPointLine(mouse_pos, input_pos, output_pos, WIRE_THICKNESS)
+            && IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)
+        ) {
+            wire_delete(wire, wire_id);
+        }
     }
 }
 

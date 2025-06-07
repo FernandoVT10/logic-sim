@@ -63,7 +63,7 @@ int main() {
                 case COMP_SWITCH: switch_update(comp->data); break;
                 case COMP_NAND: nand_update(comp->data); break;
                 case COMP_LED: led_update(comp->data); break;
-                case COMP_WIRE: wire_update(comp->data); break;
+                case COMP_WIRE: wire_update(comp->data, comp->id); break;
             }
         }
 
