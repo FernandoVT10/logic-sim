@@ -3,20 +3,25 @@
 
 #include "components.h"
 
+typedef enum {
+    ACTION_NONE,
+    ACTION_WIRING,
+    ACTION_DRAGGING,
+} Action;
+
 typedef struct {
     struct {
         bool dragging;
         Vector2 *pos; // pointer used to update the position when dragging
     } drag;
 
-    bool dragging;
     Vector2 *drag_pos;
 
     Wire *cur_wire;
-    bool wiring;
 
-    size_t component_id;
     Components components;
+
+    Action action;
 } State;
 
 extern State state;

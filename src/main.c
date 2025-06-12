@@ -8,30 +8,13 @@
 #include "components.h"
 #include "state.h"
 #include "actions.h"
+#include "utils.h"
 
 #define BG_COLOR CLITERAL(Color){ 16, 14, 23, 255 }
 
 #define PIN_RADIUS 8
 
-#define DA_INIT_CAP 128
-
-#define da_append(da, item)                                                          \
-    do {                                                                             \
-        if((da)->count >= (da)->capacity) {                                          \
-            (da)->capacity = (da)->capacity == 0 ? DA_INIT_CAP : (da)->capacity*2;   \
-            (da)->items = realloc((da)->items, (da)->capacity*sizeof(*(da)->items)); \
-            assert((da)->items != NULL && "No enough ram");                          \
-        }                                                                            \
-                                                                                     \
-        (da)->items[(da)->count++] = (item);                                         \
-    } while(0)
-
-#define da_free(da) do { free((da)->items); } while(0)
-
 State state = {0};
-
-#define list_each(item, list) \
-    (item) = (list)->head; item != NULL; (item) = (item)->next
 
 int main() {
     InitWindow(1280, 720, "Logic Sim");
@@ -63,7 +46,7 @@ int main() {
                 case COMP_SWITCH: switch_update(comp->data); break;
                 case COMP_NAND: nand_update(comp->data); break;
                 case COMP_LED: led_update(comp->data); break;
-                case COMP_WIRE: wire_update(comp->data, comp->id); break;
+                case COMP_WIRE: wire_update(comp->data); break;
             }
         }
 

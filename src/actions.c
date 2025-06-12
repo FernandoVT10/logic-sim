@@ -1,30 +1,33 @@
+#include <stdio.h>
 #include <stdlib.h>
 #include "actions.h"
 #include "components.h"
 #include "state.h"
 
 void drag_start(Vector2 *pos) {
-    if(state.dragging || state.wiring) return;
+    if(state.action != ACTION_NONE) return;
 
-    state.dragging = true;
+    state.action = ACTION_DRAGGING;
     state.drag_pos = pos;
 }
 
 void drag_update() {
-    if(!state.dragging) return;
+    if(state.action != ACTION_DRAGGING) return;
 
     *state.drag_pos = Vector2Add(*state.drag_pos, GetMouseDelta());
 
     if(IsMouseButtonReleased(MOUSE_BUTTON_LEFT)) {
-        state.dragging = false;
+        state.action = ACTION_NONE;
         state.drag_pos = NULL;
     }
 }
 
 void wiring_start(Pin *pin) {
-    state.wiring = true;
+    if(state.action != ACTION_NONE) return;
 
-    Wire *wire = wire_new();
+    state.action = ACTION_WIRING;
+
+    Wire *wire = wire_new(0);
 
     if(pin->type == PIN_INPUT) {
         wire->out = pin;
@@ -37,8 +40,10 @@ void wiring_start(Pin *pin) {
 }
 
 void wiring_end(Pin *pin) {
+    if(state.action != ACTION_WIRING) return;
+
     Wire *wire = state.cur_wire;
-    if(wire->input == NULL && wire->input == NULL) return;
+    if(wire->input == NULL && wire->out == NULL) return;
 
     PinType type = wire->input != NULL
         ? wire->input->type
@@ -60,18 +65,18 @@ void wiring_end(Pin *pin) {
     wire->out->wire = wire;
 
     state.cur_wire = NULL;
-    state.wiring = false;
+    state.action = ACTION_NONE;
 }
 
 void wiring_update() {
-    if(!state.wiring) return;
+    if(state.action != ACTION_WIRING) return;
 
     wire_draw(state.cur_wire);
 
     if(IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)) {
         // cancel wiring
         free(state.cur_wire);
-        state.wiring = false;
+        state.action = ACTION_NONE;
         state.cur_wire = NULL;
     }
 }

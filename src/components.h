@@ -5,6 +5,19 @@
 #include <stdbool.h>
 #include "raymath.h"
 
+typedef enum {
+    NAND_GATE,
+    LED,
+    SWTICH,
+} CompType;
+
+typedef struct {
+    CompType type;
+    Pin inputs[MAX_INPUTS];
+    Pin output[MAX_OUTPUTS];
+    void (*update)(Comp*);
+} Comp;
+
 typedef struct Wire Wire;
 
 typedef enum {
@@ -15,7 +28,7 @@ typedef enum {
 typedef struct {
     PinType type;
     Vector2 pos;
-    Vector2 *parent_pos;
+    Vector2 relative_pos;
     bool on;
     Wire *wire;
 } Pin;
@@ -30,7 +43,6 @@ typedef enum {
 typedef struct Component Component;
 
 struct Component {
-    size_t id;
     ComponentType type;
     void *data;
     Component *next;
@@ -58,6 +70,10 @@ typedef struct {
     Pin pin;
 } Led;
 
+typedef struct {
+    Vector2 pos;
+} Bridge;
+
 struct Wire {
     bool on;
     Pin *input;
@@ -66,14 +82,14 @@ struct Wire {
 
 void add_component_at_start(ComponentType type, void *data); // adds the component at the beginning of the list
 void add_component(ComponentType type, void *data); // adds the component at the end of the list
-void delete_component(size_t id);
+void delete_component(void *component_ptr);
 
 Switch *switch_new(Vector2 initial_pos);
 void switch_update(Switch *sw);
 void switch_draw(Switch *sw);
 
 Nand *nand_new(Vector2 initial_pos);
-void nand_update(Nand *nand, size_t comp_id);
+void nand_update(Nand *nand);
 void nand_draw(Nand *nand);
 
 Led *led_new(Vector2 initial_pos);
@@ -81,7 +97,8 @@ void led_update(Led *led);
 void led_draw(Led *led);
 
 Wire *wire_new();
-void wire_update(Wire *wire, size_t comp_id);
+void wire_delete(Wire *wire);
+void wire_update(Wire *wire);
 void wire_draw(Wire *wire);
 
 #endif // COMPONENTS_H
