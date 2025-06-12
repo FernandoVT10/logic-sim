@@ -39,16 +39,13 @@ void *alloc(size_t bytes) {
     return ptr;
 }
 
-static Component *component_new(ComponentType type, void *data) {
+static Component *component_new(ComponentType type) {
     Component *comp = alloc(sizeof(Component));
     comp->type = type;
-    comp->data = data;
     return comp;
 }
 
-void add_component_at_start(ComponentType type, void *data) {
-    Component *comp = component_new(type, data);
-
+void add_component_at_start(Component *comp) {
     if(state.components.count == 0) {
         state.components.head = comp;
         state.components.tail = comp;
@@ -60,9 +57,7 @@ void add_component_at_start(ComponentType type, void *data) {
     state.components.count++;
 }
 
-void add_component(ComponentType type, void *data) {
-    Component *comp = component_new(type, data);
-
+void add_component(Component *comp) {
     if(state.components.count == 0) {
         state.components.head = comp;
     } else {
@@ -73,72 +68,84 @@ void add_component(ComponentType type, void *data) {
     state.components.count++;
 }
 
-void delete_component(void *component_ptr) {
-    Component *comp = state.components.head;
-    Component *prev_comp = NULL;
-    size_t pos = 0;
-    for(list_each(comp, &state.components)) {
-        if(comp->data == component_ptr) {
-            if(pos == 0) {
-                state.components.head = comp->next;
-            }
+// void delete_component(void *component_ptr) {
+//     Component *comp = state.components.head;
+//     Component *prev_comp = NULL;
+//     size_t pos = 0;
+//     for(list_each(comp, &state.components)) {
+//         if(comp->data == component_ptr) {
+//             if(pos == 0) {
+//                 state.components.head = comp->next;
+//             }
+//
+//             if(state.components.count > 0 && pos == state.components.count - 1) {
+//                 state.components.tail = prev_comp;
+//             }
+//
+//             if(prev_comp != NULL) {
+//                 prev_comp->next = comp->next;
+//             }
+//
+//             free(comp);
+//             state.components.count--;
+//             break;
+//         }
+//         pos++;
+//         prev_comp = comp;
+//     }
+// }
 
-            if(state.components.count > 0 && pos == state.components.count - 1) {
-                state.components.tail = prev_comp;
-            }
+// static void pin_update(Pin *pin, Vector2 parent_pos) {
+//     pin->pos = Vector2Add(parent_pos, pin->relative_pos);
+//
+//     // can't add a 2 wires to a pin
+//     if(pin->wire != NULL) return;
+//
+//     if(CheckCollisionPointCircle(GetMousePosition(), pin->pos, PIN_RADIUS)
+//         && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)
+//     ) {
+//         if(state.action == ACTION_WIRING) {
+//             wiring_end(pin);
+//         } else {
+//             wiring_start(pin);
+//         }
+//     }
+// }
+//
+// static void pin_draw(Pin pin) {
+//     DrawCircleV(pin.pos, PIN_RADIUS, COMP_COLOR);
+// }
+//
+// static void pin_before_delete(Pin *pin) {
+//     if(pin->wire == NULL) return;
+//
+//     wire_delete(pin->wire);
+// }
 
-            if(prev_comp != NULL) {
-                prev_comp->next = comp->next;
-            }
+static void update_input_pin(PinInput *pin, bool on) {
+    pin->on = on;
 
-            free(comp);
-            state.components.count--;
-            break;
-        }
-        pos++;
-        prev_comp = comp;
+    if(pin->parent->update_state) {
+        pin->parent->update_state(pin->parent);
     }
 }
 
-static void pin_update(Pin *pin, Vector2 parent_pos) {
-    pin->pos = Vector2Add(parent_pos, pin->relative_pos);
+static void update_wire(Wire *wire, bool on) {
+    wire->on = on;
 
-    // can't add a 2 wires to a pin
-    if(pin->wire != NULL) return;
+    update_input_pin(wire->right, on);
+}
 
-    if(CheckCollisionPointCircle(GetMousePosition(), pin->pos, PIN_RADIUS)
-        && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)
-    ) {
-        if(state.action == ACTION_WIRING) {
-            wiring_end(pin);
-        } else {
-            wiring_start(pin);
-        }
+static void update_output_pin(PinOutput *pin, bool on) {
+    pin->on = on;
+
+    if(pin->wire) {
+        update_wire(pin->wire, on);
     }
 }
 
-static void pin_draw(Pin pin) {
-    DrawCircleV(pin.pos, PIN_RADIUS, COMP_COLOR);
-}
-
-static void pin_before_delete(Pin *pin) {
-    if(pin->wire == NULL) return;
-
-    wire_delete(pin->wire);
-}
-
-Switch *switch_new(Vector2 initial_pos) {
-    Switch *sw = alloc(sizeof(Switch));
-    sw->pos = initial_pos;
-
-    sw->pin.type = PIN_OUTPUT;
-    sw->pin.relative_pos.x = SWITCH_DRAGGABLE_WIDTH + SWITCH_DRAGGABLE_MARGIN + SWITCH_WIDTH + SWITCH_LINE_WIDTH + PIN_RADIUS;
-    sw->pin.relative_pos.y = SWITCH_HEIGHT / 2;
-    return sw;
-}
-
-void switch_update(Switch *sw) {
-    pin_update(&sw->pin, sw->pos);
+static void switch_update(Component *sw) {
+    // pin_update(&sw->pin, sw->pos);
 
     Rectangle draggable_collider = {
         .x = sw->pos.x,
@@ -161,27 +168,29 @@ void switch_update(Switch *sw) {
     };
     bool collision = CheckCollisionPointRec(GetMousePosition(), switch_collider);
     if(collision && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
-        sw->pin.on = !sw->pin.on;
+        bool on = !sw->outputs.items[0].on;
+        update_output_pin(&sw->outputs.items[0], on);
     }
 
-    Rectangle collider = {
-        .x = sw->pos.x,
-        .y = sw->pos.y,
-        .width = SWITCH_DRAGGABLE_WIDTH + SWITCH_DRAGGABLE_MARGIN + SWITCH_WIDTH,
-        .height = SWITCH_HEIGHT,
-    };
-    if(CheckCollisionPointRec(GetMousePosition(), collider)
-        && IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)
-        && state.action == ACTION_NONE
-    ) {
-        pin_before_delete(&sw->pin);
-        delete_component(sw);
-        free(sw);
-    }
+    // Rectangle collider = {
+    //     .x = sw->pos.x,
+    //     .y = sw->pos.y,
+    //     .width = SWITCH_DRAGGABLE_WIDTH + SWITCH_DRAGGABLE_MARGIN + SWITCH_WIDTH,
+    //     .height = SWITCH_HEIGHT,
+    // };
+    // if(CheckCollisionPointRec(GetMousePosition(), collider)
+    //     && IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)
+    //     && state.action == ACTION_NONE
+    // ) {
+    //     pin_before_delete(&sw->pin);
+    //     delete_component(sw);
+    //     free(sw);
+    // }
 }
 
-void switch_draw(Switch *sw) {
-    Color color = sw->pin.on ? ACTIVE_COMP_COLOR : COMP_COLOR;
+static void switch_draw(Component *sw) {
+    bool on = sw->outputs.items[0].on;
+    Color color = on ? ACTIVE_COMP_COLOR : COMP_COLOR;
     float pos_x = sw->pos.x;
 
     // draggable rectangle before the switch
@@ -206,7 +215,7 @@ void switch_draw(Switch *sw) {
     DrawRectangleLinesEx(rec, 2, color);
 
     // indicator of the switch state
-    if(sw->pin.on) {
+    if(on) {
         int inner_width = 20;
         int inner_height = 20;
         DrawRectangle(
@@ -224,112 +233,97 @@ void switch_draw(Switch *sw) {
     Vector2 line_end = {line_pos.x + SWITCH_LINE_WIDTH, line_pos.y};
     DrawLineEx(line_pos, line_end, SWITCH_LINE_THICKNESS, COMP_COLOR);
 
-    pin_draw(sw->pin);
+    // pin_draw(sw->pin);
 }
 
-Nand *nand_new(Vector2 initial_pos) {
-    Nand *nand = alloc(sizeof(Nand));
-    nand->pos = initial_pos;
+Component *switch_new(Vector2 initial_pos) {
+    Component *sw = component_new(SWITCH);
+    sw->pos = initial_pos;
+    sw->draw = &switch_draw;
+    sw->update = &switch_update;
 
-    nand->in[0] = (Pin){
-        .type = PIN_INPUT,
-        .relative_pos = {0, PIN_RADIUS},
-    };
+    da_append(&sw->outputs, ((PinOutput) {}));
 
-    nand->in[1] = (Pin){
-        .type = PIN_INPUT,
-        .relative_pos = {0, NAND_HEIGHT - PIN_RADIUS},
-    };
-
-    nand->out = (Pin){
-        .type = PIN_OUTPUT,
-        .relative_pos = {NAND_WIDTH, NAND_HEIGHT/2},
-    };
-
-    return nand;
+    // sw->pin.type = PIN_OUTPUT;
+    // sw->pin.relative_pos.x = SWITCH_DRAGGABLE_WIDTH + SWITCH_DRAGGABLE_MARGIN + SWITCH_WIDTH + SWITCH_LINE_WIDTH + PIN_RADIUS;
+    // sw->pin.relative_pos.y = SWITCH_HEIGHT / 2;
+    return sw;
 }
 
-void nand_update(Nand *nand) {
-    pin_update(&nand->out, nand->pos);
-    pin_update(&nand->in[0], nand->pos);
-    pin_update(&nand->in[1], nand->pos);
-    nand->out.on = !(nand->in[0].on && nand->in[1].on);
+// Nand *nand_new(Vector2 initial_pos) {
+//     Nand *nand = alloc(sizeof(Nand));
+//     nand->pos = initial_pos;
+//
+//     nand->in[0] = (Pin){
+//         .type = PIN_INPUT,
+//         .relative_pos = {0, PIN_RADIUS},
+//     };
+//
+//     nand->in[1] = (Pin){
+//         .type = PIN_INPUT,
+//         .relative_pos = {0, NAND_HEIGHT - PIN_RADIUS},
+//     };
+//
+//     nand->out = (Pin){
+//         .type = PIN_OUTPUT,
+//         .relative_pos = {NAND_WIDTH, NAND_HEIGHT/2},
+//     };
+//
+//     return nand;
+// }
+//
+// void nand_update(Nand *nand) {
+//     pin_update(&nand->out, nand->pos);
+//     pin_update(&nand->in[0], nand->pos);
+//     pin_update(&nand->in[1], nand->pos);
+//     nand->out.on = !(nand->in[0].on && nand->in[1].on);
+//
+//     Rectangle collider = {
+//         .x = nand->pos.x,
+//         .y = nand->pos.y,
+//         .width = NAND_WIDTH,
+//         .height = NAND_HEIGHT,
+//     };
+//
+//     if(CheckCollisionPointRec(GetMousePosition(), collider)) {
+//         if(IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+//             drag_start(&nand->pos);
+//         } else if(IsMouseButtonPressed(MOUSE_BUTTON_RIGHT) && state.action == ACTION_NONE) {
+//             pin_before_delete(&nand->out);
+//             pin_before_delete(&nand->in[0]);
+//             pin_before_delete(&nand->in[1]);
+//             delete_component(nand);
+//             free(nand);
+//         }
+//     }
+// }
+//
+// void nand_draw(Nand *nand) {
+//     pin_draw(nand->in[0]);
+//     pin_draw(nand->in[1]);
+//     pin_draw(nand->out);
+//
+//     DrawRectangle(nand->pos.x, nand->pos.y, NAND_WIDTH, NAND_HEIGHT, NAND_BG_COLOR);
+//
+//     const char *text = "NAND";
+//     int font_size = 26;
+//     int text_width = MeasureText(text, font_size);
+//
+//     DrawText(
+//         text,
+//         nand->pos.x + NAND_WIDTH / 2 - text_width / 2,
+//         nand->pos.y + NAND_HEIGHT / 2 - font_size / 2,
+//         font_size,
+//         WHITE
+//     );
+// }
 
-    Rectangle collider = {
-        .x = nand->pos.x,
-        .y = nand->pos.y,
-        .width = NAND_WIDTH,
-        .height = NAND_HEIGHT,
-    };
-
-    if(CheckCollisionPointRec(GetMousePosition(), collider)) {
-        if(IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
-            drag_start(&nand->pos);
-        } else if(IsMouseButtonPressed(MOUSE_BUTTON_RIGHT) && state.action == ACTION_NONE) {
-            pin_before_delete(&nand->out);
-            pin_before_delete(&nand->in[0]);
-            pin_before_delete(&nand->in[1]);
-            delete_component(nand);
-            free(nand);
-        }
-    }
-}
-
-void nand_draw(Nand *nand) {
-    pin_draw(nand->in[0]);
-    pin_draw(nand->in[1]);
-    pin_draw(nand->out);
-
-    DrawRectangle(nand->pos.x, nand->pos.y, NAND_WIDTH, NAND_HEIGHT, NAND_BG_COLOR);
-
-    const char *text = "NAND";
-    int font_size = 26;
-    int text_width = MeasureText(text, font_size);
-
-    DrawText(
-        text,
-        nand->pos.x + NAND_WIDTH / 2 - text_width / 2,
-        nand->pos.y + NAND_HEIGHT / 2 - font_size / 2,
-        font_size,
-        WHITE
-    );
-}
-
-Led *led_new(Vector2 initial_pos) {
-    Led *led = alloc(sizeof(Led));
-    led->pos = initial_pos;
-
-    led->pin.type = PIN_INPUT;
-    led->pin.relative_pos = (Vector2){2, LED_HEIGHT / 2};
-    return led;
-}
-
-void led_update(Led *led) {
-    pin_update(&led->pin, led->pos);
-    Rectangle collider = {
-        .x = led->pos.x,
-        .y = led->pos.y,
-        .width = LED_WIDTH,
-        .height = LED_HEIGHT,
-    };
-
-    if(CheckCollisionPointRec(GetMousePosition(), collider)) {
-        if(IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
-            drag_start(&led->pos);
-        } else if(IsMouseButtonPressed(MOUSE_BUTTON_RIGHT) && state.action == ACTION_NONE) {
-            pin_before_delete(&led->pin);
-            delete_component(led);
-            free(led);
-        }
-    }
-}
-
-void led_draw(Led *led) {
-    pin_draw(led->pin);
+static void led_draw(Component *led) {
+    // pin_draw(led->pin);
 
     DrawRectangle(led->pos.x, led->pos.y, LED_WIDTH, LED_HEIGHT, COMP_COLOR);
 
-    Color color = led->pin.on ? LED_ACTIVE_COLOR : LED_COLOR;
+    Color color = led->inputs.items[0].on ? LED_ACTIVE_COLOR : LED_COLOR;
 
     int inner_width = LED_WIDTH - 6;
     int inner_height = LED_HEIGHT - 6;
@@ -342,47 +336,82 @@ void led_draw(Led *led) {
     );
 }
 
-Wire *wire_new() {
-    return alloc(sizeof(Wire));
+Component *led_new(Vector2 initial_pos) {
+    Component *led = component_new(LED);
+    led->pos = initial_pos;
+
+    led->draw = &led_draw;
+
+    da_append(&led->inputs, ((PinInput) {
+        .parent = led,
+    }));
+
+    // led->pin.type = PIN_INPUT;
+    // led->pin.relative_pos = (Vector2){2, LED_HEIGHT / 2};
+    return led;
 }
 
-void wire_delete(Wire *wire) {
-    wire->out->on = false;
-    wire->input->wire = NULL;
-    wire->out->wire = NULL;
-    delete_component(wire);
-    free(wire);
-}
-
-void wire_update(Wire *wire) {
-    if(wire->input != NULL) {
-        wire->on = wire->input->on;
-    }
-
-    if(wire->out != NULL) {
-        wire->out->on = wire->on;
-    }
-
-    if(wire->input != NULL && wire->out != NULL) {
-        Vector2 mouse_pos = GetMousePosition();
-        Vector2 input_pos = wire->input->pos;
-        Vector2 output_pos = wire->out->pos;
-
-        if(CheckCollisionPointLine(mouse_pos, input_pos, output_pos, WIRE_THICKNESS)
-            && IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)
-            && state.action == ACTION_NONE
-        ) {
-            wire_delete(wire);
-        }
-    }
-}
-
-void wire_draw(Wire *wire) {
-    Vector2 mouse_pos = GetMousePosition();
-    Vector2 start_pos = wire->input != NULL ? wire->input->pos : mouse_pos;
-    Vector2 end_pos = wire->out != NULL ? wire->out->pos : mouse_pos;
-
-    Color wire_color = wire->on ? WIRE_ON_COLOR : WIRE_OFF_COLOR;
-
-    DrawLineEx(start_pos, end_pos, WIRE_THICKNESS, wire_color);
-}
+// void led_update(Led *led) {
+//     pin_update(&led->pin, led->pos);
+//     Rectangle collider = {
+//         .x = led->pos.x,
+//         .y = led->pos.y,
+//         .width = LED_WIDTH,
+//         .height = LED_HEIGHT,
+//     };
+//
+//     if(CheckCollisionPointRec(GetMousePosition(), collider)) {
+//         if(IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+//             drag_start(&led->pos);
+//         } else if(IsMouseButtonPressed(MOUSE_BUTTON_RIGHT) && state.action == ACTION_NONE) {
+//             pin_before_delete(&led->pin);
+//             delete_component(led);
+//             free(led);
+//         }
+//     }
+// }
+//
+// Wire *wire_new() {
+//     return alloc(sizeof(Wire));
+// }
+//
+// void wire_delete(Wire *wire) {
+//     wire->out->on = false;
+//     wire->input->wire = NULL;
+//     wire->out->wire = NULL;
+//     delete_component(wire);
+//     free(wire);
+// }
+//
+// void wire_update(Wire *wire) {
+//     if(wire->input != NULL) {
+//         wire->on = wire->input->on;
+//     }
+//
+//     if(wire->out != NULL) {
+//         wire->out->on = wire->on;
+//     }
+//
+//     if(wire->input != NULL && wire->out != NULL) {
+//         Vector2 mouse_pos = GetMousePosition();
+//         Vector2 input_pos = wire->input->pos;
+//         Vector2 output_pos = wire->out->pos;
+//
+//         if(CheckCollisionPointLine(mouse_pos, input_pos, output_pos, WIRE_THICKNESS)
+//             && IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)
+//             && state.action == ACTION_NONE
+//         ) {
+//             wire_delete(wire);
+//         }
+//     }
+// }
+//
+// void wire_draw(Wire *wire) {
+//     Vector2 mouse_pos = GetMousePosition();
+//     Vector2 start_pos = wire->input != NULL ? wire->input->pos : mouse_pos;
+//     Vector2 end_pos = wire->out != NULL ? wire->out->pos : mouse_pos;
+//
+//     Color wire_color = wire->on ? WIRE_ON_COLOR : WIRE_OFF_COLOR;
+//
+//     DrawLineEx(start_pos, end_pos, WIRE_THICKNESS, wire_color);
+// }

@@ -23,20 +23,19 @@ void drag_update() {
 }
 
 void wiring_start(Pin *pin) {
-    if(state.action != ACTION_NONE) return;
+    if(state.action != ACTION_NONE && pin) return;
 
     state.action = ACTION_WIRING;
 
-    Wire *wire = wire_new(0);
-
-    if(pin->type == PIN_INPUT) {
-        wire->out = pin;
-    } else {
-        wire->input = pin;
-    }
-
-    state.cur_wire = wire;
-
+    // Wire *wire = wire_new(0);
+    //
+    // if(pin->type == PIN_INPUT) {
+    //     wire->out = pin;
+    // } else {
+    //     wire->input = pin;
+    // }
+    //
+    // state.cur_wire = wire;
 }
 
 void wiring_end(Pin *pin) {
@@ -45,7 +44,7 @@ void wiring_end(Pin *pin) {
     Wire *wire = state.cur_wire;
     if(wire->input == NULL && wire->out == NULL) return;
 
-    PinType type = wire->input != NULL
+    int type = wire->input != NULL
         ? wire->input->type
         : wire->out->type;
     // if they are the same time we omit this call
@@ -58,11 +57,11 @@ void wiring_end(Pin *pin) {
     }
 
     // little hack to draw the wire behind all components :)
-    add_component_at_start(COMP_WIRE, wire);
+    // add_component_at_start(COMP_WIRE, wire);
 
     // adding references to the pins
-    wire->input->wire = wire;
-    wire->out->wire = wire;
+    // wire->input->wire = wire;
+    // wire->out->wire = wire;
 
     state.cur_wire = NULL;
     state.action = ACTION_NONE;
@@ -71,7 +70,7 @@ void wiring_end(Pin *pin) {
 void wiring_update() {
     if(state.action != ACTION_WIRING) return;
 
-    wire_draw(state.cur_wire);
+    // wire_draw(state.cur_wire);
 
     if(IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)) {
         // cancel wiring

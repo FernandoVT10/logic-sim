@@ -19,45 +19,48 @@ State state = {0};
 int main() {
     InitWindow(1280, 720, "Logic Sim");
     SetTargetFPS(60);
+    Component *sw = switch_new((Vector2){100, 100});
+    add_component(sw);
+
+    Component *led = led_new((Vector2){200, 100});
+    add_component(led);
+
+    Wire wire = {
+        .left = &sw->outputs.items[0],
+        .right = &led->inputs.items[0],
+    };
+
+    sw->outputs.items[0].wire = &wire;
 
     while(!WindowShouldClose()) {
         BeginDrawing();
         ClearBackground(BG_COLOR);
 
         if(IsKeyPressed(KEY_S)) {
-            add_component(COMP_SWITCH, switch_new(GetMousePosition()));
+            add_component(switch_new(GetMousePosition()));
         }
 
         if(IsKeyPressed(KEY_L)) {
-            add_component(COMP_LED, led_new(GetMousePosition()));
+            add_component(led_new(GetMousePosition()));
         }
-
-        if(IsKeyPressed(KEY_N)) {
-            add_component(COMP_NAND, nand_new(GetMousePosition()));
-        }
+        //
+        // if(IsKeyPressed(KEY_N)) {
+        //     add_component(COMP_NAND, nand_new(GetMousePosition()));
+        // }
 
         drag_update();
         wiring_update();
 
+
         // first update all components
         Component *comp;
         for(list_each(comp, &state.components)) {
-            switch(comp->type) {
-                case COMP_SWITCH: switch_update(comp->data); break;
-                case COMP_NAND: nand_update(comp->data); break;
-                case COMP_LED: led_update(comp->data); break;
-                case COMP_WIRE: wire_update(comp->data); break;
-            }
+            if(comp->update) comp->update(comp);
         }
 
         // then we draw them
         for(list_each(comp, &state.components)) {
-            switch(comp->type) {
-                case COMP_SWITCH: switch_draw(comp->data); break;
-                case COMP_NAND: nand_draw(comp->data); break;
-                case COMP_LED: led_draw(comp->data); break;
-                case COMP_WIRE: wire_draw(comp->data); break;
-            }
+            if(comp->draw) comp->draw(comp);
         }
 
         EndDrawing();
