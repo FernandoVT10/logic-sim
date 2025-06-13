@@ -16,11 +16,15 @@ typedef enum {
 typedef struct {
     bool on;
     Component *parent;
+    Vector2 *parent_pos;
+    Vector2 relative_pos;
 } PinInput;
 
 typedef struct {
     bool on;
     Wire *wire;
+    Vector2 *parent_pos;
+    Vector2 relative_pos;
 } PinOutput;
 
 typedef enum {
@@ -75,12 +79,10 @@ void add_component_at_start(Component*); // adds the component at the beginning 
 void add_component(Component*); // adds the component at the end of the list
 void delete_component(void *component_ptr);
 
+void component_draw_pins(Component*);
+
 Component *switch_new(Vector2 initial_pos);
-
-// Nand *nand_new(Vector2 initial_pos);
-// void nand_update(Nand *nand);
-// void nand_draw(Nand *nand);
-
+Component *nand_new(Vector2 initial_pos);
 Component *led_new(Vector2 initial_pos);
 
 // Wire *wire_new();

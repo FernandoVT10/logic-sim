@@ -17,6 +17,11 @@ typedef struct {
 
     Vector2 *drag_pos;
 
+    struct {
+        Wire *items;
+        size_t count;
+        size_t capacity;
+    } wires;
     Wire *cur_wire;
 
     Components components;
