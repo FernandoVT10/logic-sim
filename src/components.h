@@ -4,6 +4,10 @@
 #include <stddef.h>
 #include <stdbool.h>
 #include "raymath.h"
+#include "utils.h"
+
+typedef struct Wire Wire;
+typedef struct Component Component;
 
 typedef enum {
     PIN_INPUT,
@@ -12,73 +16,70 @@ typedef enum {
 
 typedef struct {
     PinType type;
-    Vector2 pos;
-    Vector2 *parent_pos;
     bool on;
+    Set *wires;
+    Component *parent;
+    Vector2 pos; // relative position based in the parent
 } Pin;
 
+// typedef struct {
+//     bool on;
+//     Set *wires;
+//     Component *parent;
+//     Vector2 *parent_pos;
+//     Vector2 relative_pos;
+// } PinInput;
+//
+// typedef struct {
+//     bool on;
+//     Set *wires;
+//     Vector2 *parent_pos;
+//     Vector2 relative_pos;
+// } PinOutput;
+
 typedef enum {
-    COMP_SWITCH,
-    COMP_LED,
-    COMP_NAND,
-    COMP_WIRE,
+    SWITCH,
+    LED,
+    NAND_GATE,
+    // WIRE,
 } ComponentType;
 
-typedef struct Component Component;
+typedef struct {
+    Pin *items;
+    size_t count;
+    size_t capacity;
+} Pins;
 
 struct Component {
-    size_t id;
     ComponentType type;
-    void *data;
-    Component *next;
+    Vector2 pos;
+
+    Pins inputs;
+    Pins outputs;
+
+    void (*draw)(Component*);
+    void (*update)(Component*);
+    void (*update_state)(Component*);
 };
 
-typedef struct {
-    Component *head;
-    Component *tail;
-    size_t count;
-} Components;
-
-typedef struct {
-    Vector2 pos;
-    Pin pin;
-} Switch;
-
-typedef struct {
-    Vector2 pos;
-    Pin in[2];
-    Pin out;
-} Nand;
-
-typedef struct {
-    Vector2 pos;
-    Pin pin;
-} Led;
-
-typedef struct {
+struct Wire {
     bool on;
-    Pin *input;
-    Pin *out;
-} Wire;
+    Pin *left;
+    Pin *right;
+};
 
-void add_component_at_start(ComponentType type, void *data); // adds the component at the beginning of the list
-void add_component(ComponentType type, void *data); // adds the component at the end of the list
-void delete_component(size_t id);
+void component_add(Component*);
+void component_update_pins(Component*);
+void component_draw_pins(Component*);
 
-Switch *switch_new(Vector2 initial_pos);
-void switch_update(Switch *sw);
-void switch_draw(Switch *sw);
-
-Nand *nand_new(Vector2 initial_pos);
-void nand_update(Nand *nand);
-void nand_draw(Nand *nand);
-
-Led *led_new(Vector2 initial_pos);
-void led_update(Led *led);
-void led_draw(Led *led);
+Component *switch_new(Vector2 initial_pos);
+Component *nand_new(Vector2 initial_pos);
+Component *led_new(Vector2 initial_pos);
 
 Wire *wire_new();
-void wire_update(Wire *wire);
-void wire_draw(Wire *wire);
+void wire_draw(Wire* wire);
+void update_wire_state(Wire* wire, bool on);
+void wire_delete(Wire* wire);
+void wire_update(Wire* wire);
 
 #endif // COMPONENTS_H

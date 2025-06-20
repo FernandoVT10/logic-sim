@@ -2,6 +2,13 @@
 #define STATE_H
 
 #include "components.h"
+#include "utils.h"
+
+typedef enum {
+    ACTION_NONE,
+    ACTION_WIRING,
+    ACTION_DRAGGING,
+} Action;
 
 typedef struct {
     struct {
@@ -9,14 +16,14 @@ typedef struct {
         Vector2 *pos; // pointer used to update the position when dragging
     } drag;
 
-    bool dragging;
     Vector2 *drag_pos;
 
+    Set *wires;
     Wire *cur_wire;
-    bool wiring;
 
-    size_t component_id;
-    Components components;
+    Set *components;
+
+    Action action;
 } State;
 
 extern State state;

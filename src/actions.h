@@ -4,7 +4,7 @@
 #include "raylib.h"
 #include "components.h"
 
-void drag_start(Vector2 *pos);
+void drag_start(Vector2*);
 void drag_update();
 
 void wiring_start(Pin *pin);
